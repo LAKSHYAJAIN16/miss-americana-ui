@@ -1,0 +1,46 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Capability for the main window",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "opener:default",
+    {
+      "identifier": "fs:allow-open",
+      "allow": [{ "path": "$APPDATA/*" }]
+    },
+        {
+      "identifier": "fs:write-all",
+      "allow": [{ "path": "$APPDATA/*" }]
+    },
+        {
+      "identifier": "fs:read-all",
+      "allow": [{ "path": "$APPDATA/*" }]
+    },
+    { 
+    "identifier": "fs:allow-open",
+    "allow": [{ "path": "$HOME/**" }]
+  },
+    {
+      "identifier": "http:default",
+      "allow": [
+        {
+          "url": "https://*.youtube.com"
+        },
+        {
+          "url": "http://localhost"
+        },
+        {
+          "url": "https://rr2---sn-jvbxjv-tihz.googlevideo.com"
+        },
+        {
+          "url": "https://*.googlevideo.com"
+        }
+      ]
+    },
+    "fs:default"
+  ]
+}
