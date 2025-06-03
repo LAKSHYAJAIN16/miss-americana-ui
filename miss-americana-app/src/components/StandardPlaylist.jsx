@@ -12,6 +12,7 @@ import {
 } from '../lib/functions'
 import { open, BaseDirectory } from '@tauri-apps/plugin-fs'
 import { assembleArtistString } from './LikedSongs2'
+
 export default function StandardPlaylist ({
   token,
   playlist,
@@ -21,6 +22,7 @@ export default function StandardPlaylist ({
   const [tracks, setTracks] = useState([])
   const [color, setColor] = useState(['#FFC0CB', '#FFC0CB', '#FFC0CB'])
   const [render, setRender] = useState(true)
+  const [currentSong, setCurrentSong] = useState(null)
   useEffect(() => {
     const fn = async () => {
       console.log(token)
@@ -103,7 +105,9 @@ export default function StandardPlaylist ({
         <div className='ml-2 flex-col flex h-[85vh] overflow-y-scroll rounded-xl max-w-screen-xl w-full mx-auto'>
           <div
             className={
-              'bg-gradient-to-b text-white p-8 rounded-xl max-w-screen-xl w-full mx-auto ' + getNearestTailwindFromClass('from', color[2]) +' to-[#0d020c] '
+              'bg-gradient-to-b text-white p-8 rounded-xl max-w-screen-xl w-full mx-auto ' +
+              getNearestTailwindFromClass('from', color[2]) +
+              ' to-[#0d020c] '
             }
           >
             <div className='flex items-end gap-6'>
@@ -113,7 +117,6 @@ export default function StandardPlaylist ({
                   alt={playlist.name}
                   className='rounded-md w-full h-full object-cover'
                   id='playlist-image'
-                  
                 />
               </div>
               <div>
@@ -160,34 +163,79 @@ export default function StandardPlaylist ({
               <div className='col-span-4'>Date added</div>
             </div>
             {tracks.map((track, index) => (
-              <div
-                key={track.track.name}
-                onClick={() => playTrack(track, index)}
-                className='grid grid-cols-22 items-center px-3 py-2 hover:bg-gray-800 rounded-lg transition-all cursor-pointer  '
-              >
-                <div className='col-span-1 text-gray-400'>{index + 1}</div>
-                <div className='col-span-11 flex items-center space-x-3'>
-                  <img
-                    src={track.track.album.images[0].url}
-                    alt={track.track.name}
-                    className='w-12 h-12 rounded object-cover'
-                  />
-                  <div>
-                    <div className='font-semibold truncate'>
-                      {track.track.name}
+              <>
+                {currentSong == index ? (
+                  <>
+                    <div
+                      key={track.track.name}
+                      className='grid grid-cols-22 items-center px-3 py-2 bg-gray-900 rounded-lg transition-all cursor-pointer  '
+                    >
+                      <div className='col-span-1 text-gray-400'>
+                        {index + 1}
+                      </div>
+                      <div className='col-span-11 flex items-center space-x-3'>
+                        <img
+                          src={track.track.album.images[0].url}
+                          alt={track.track.name}
+                          className='w-12 h-12 rounded object-cover'
+                        />
+                        <div>
+                          <div className='font-semibold text-pink-600 truncate'>
+                            {track.track.name}
+                          </div>
+                          <div className='text-gray-300 text-xs'>
+                            {assembleArtistString(track.track.artists)}
+                          </div>
+                        </div>
+                      </div>
+                      <div className='col-span-6 ml-2 text-sm text-gray-300 truncate'>
+                        {track.track.album.name}
+                      </div>
+                      <div className='col-span-4 text-sm text-gray-400'>
+                        {new Date(track.added_at).toDateString()}
+                      </div>
                     </div>
-                    <div className='text-gray-400 text-xs'>
-                      {assembleArtistString(track.track.artists)}
+                  </>
+                ) : (
+                  <>
+                    <div
+                      key={track.track.name}
+                      onClick={() => {
+                        console.log(index);
+                        setCurrentSong(index)
+                        playTrack(track, index)
+                        console.log(currentSong)
+                      }}
+                      className='grid grid-cols-22 items-center px-3 py-2 hover:bg-gray-800 rounded-lg transition-all cursor-pointer  '
+                    >
+                      <div className='col-span-1 text-gray-400'>
+                        {index + 1}
+                      </div>
+                      <div className='col-span-11 flex items-center space-x-3'>
+                        <img
+                          src={track.track.album.images[0].url}
+                          alt={track.track.name}
+                          className='w-12 h-12 rounded object-cover'
+                        />
+                        <div>
+                          <div className='font-semibold truncate'>
+                            {track.track.name}
+                          </div>
+                          <div className='text-gray-400 text-xs'>
+                            {assembleArtistString(track.track.artists)}
+                          </div>
+                        </div>
+                      </div>
+                      <div className='col-span-6 ml-2 text-sm text-gray-300 truncate'>
+                        {track.track.album.name}
+                      </div>
+                      <div className='col-span-4 text-sm text-gray-400'>
+                        {new Date(track.added_at).toDateString()}
+                      </div>
                     </div>
-                  </div>
-                </div>
-                <div className='col-span-6 ml-2 text-sm text-gray-300 truncate'>
-                  {track.track.album.name}
-                </div>
-                <div className='col-span-4 text-sm text-gray-400'>
-                  {new Date(track.added_at).toDateString()}
-                </div>
-              </div>
+                  </>
+                )}
+              </>
             ))}
           </div>
         </div>

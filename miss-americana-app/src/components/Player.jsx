@@ -2,9 +2,17 @@ import React, { useEffect, useRef, useState } from 'react'
 import { assembleArtistString } from './LikedSongs2'
 import Innertube from 'youtubei.js'
 import { fetchBackend } from '../lib/functions'
-import Clapperboard from '../assets/clapperboard2.png'
+import { Client } from 'lrclib-api'
 
-export default function Player ({ track, playing }) {
+import Clapperboard from '../assets/clapperboard2.png'
+import Microphone from '../assets/microphone.png'
+import NextImage from '../assets/next.png'
+import OutImage from '../assets/out.png'
+import RemoveImage from '../assets/remove.png'
+import MaximizeImage from '../assets/maximize.png'
+import MinimizeImage from '../assets/minimize.png'
+
+export default function Player ({ track, playing, superCallback }) {
   const [url, setUrl] = useState('')
   const [mvURL, setMvURL] = useState('')
   const videoRef = useRef(null)
@@ -16,8 +24,103 @@ export default function Player ({ track, playing }) {
   const [isPlaying, setIsPlaying] = useState(true)
   const [volume, setVolume] = useState(1)
   const [disabled, setDisabled] = useState(true)
+  const [mvYoutubeURL, setmvYoutubeURL] = useState('')
   const [loadingMV, setloadingMV] = useState(false)
   const [displayMV, setDisplayMV] = useState(false)
+  const [displayLyrics, setDisplayLyrics] = useState(false)
+  const [lyrics, setLyrics] = useState([])
+
+  const mvModalRef = useRef(null)
+  const [mvPosition, setMvPosition] = useState({ x: 0, y: 0 })
+  const [mvSize, setMvSize] = useState({ width: 800, height: 500 })
+  const [mvIsDragging, setMvIsDragging] = useState(false)
+  const [mvOffset, setMvOffset] = useState({ x: 0, y: 0 })
+  const [maximizedState, setMaximizedState] = useState(0)
+  const [lastFullScreenVariables, setLastFullScreenVariables] = useState([
+    {},
+    {}
+  ])
+
+  // Handle Dragging
+  const handleMvMouseDown = e => {
+    setMvIsDragging(true)
+    setMvOffset({
+      x: e.clientX - mvPosition.x,
+      y: e.clientY - mvPosition.y
+    })
+  }
+
+  useEffect(() => {
+    const handleMvMouseMove = e => {
+      if (!mvIsDragging) return
+      setMvPosition({
+        x: e.clientX - mvOffset.x,
+        y: e.clientY - mvOffset.y
+      })
+    }
+
+    const handleMvMouseUp = () => setMvIsDragging(false)
+
+    document.addEventListener('mousemove', handleMvMouseMove)
+    document.addEventListener('mouseup', handleMvMouseUp)
+
+    return () => {
+      document.removeEventListener('mousemove', handleMvMouseMove)
+      document.removeEventListener('mouseup', handleMvMouseUp)
+    }
+  }, [mvIsDragging, mvOffset])
+
+  // Handle Resizing
+  const handleMvResizeMouseDown = e => {
+    e.preventDefault()
+    setMaximizedState(0);
+    const mvStartX = e.clientX
+    const mvStartY = e.clientY
+    const mvStartWidth = mvModalRef.current.offsetWidth
+    const mvStartHeight = mvModalRef.current.offsetHeight
+
+    const doMvResize = e => {
+      const deltaX = e.clientX - mvStartX
+
+      // Calculate new width and height based on locked ratio
+      const newWidth = Math.max(440, mvStartWidth + deltaX)
+      const newHeight =
+        newWidth /
+        (mvModalRef.current.offsetWidth / mvModalRef.current.offsetHeight)
+
+      setMvSize({ width: newWidth, height: newHeight })
+    }
+
+    const stopMvResize = () => {
+      document.removeEventListener('mousemove', doMvResize)
+      document.removeEventListener('mouseup', stopMvResize)
+    }
+
+    document.addEventListener('mousemove', doMvResize)
+    document.addEventListener('mouseup', stopMvResize)
+  }
+
+  // Handle Fullscreen
+  const handleFullScreen = () => {
+    if (maximizedState == 0) {
+      setLastFullScreenVariables([mvPosition, mvSize])
+      setMvSize({
+        width:
+          (mvModalRef.current.offsetWidth / mvModalRef.current.offsetHeight) *
+          window.innerHeight *
+          0.98,
+        height: window.innerHeight * 0.98
+      })
+      setMvPosition({ x: 0, y: 0 })
+      setMaximizedState(1)
+    }
+
+    if (maximizedState == 1) {
+      setMvSize(lastFullScreenVariables[1])
+      setMvPosition(lastFullScreenVariables[0])
+      setMaximizedState(0)
+    }
+  }
 
   // Format seconds as mm:ss
   const formatTime = time => {
@@ -57,6 +160,9 @@ export default function Player ({ track, playing }) {
     )
     const newTime = percent * duration
     videoRef.current.currentTime = newTime
+
+    if (mvRef.current) mvRef.current.currentTime = newTime
+
     setCurrentTime(newTime)
   }
 
@@ -107,13 +213,17 @@ export default function Player ({ track, playing }) {
   }, [track])
 
   // When we have the song
-  function callback_end () {
+  async function callback_end () {
     console.log('Video started')
 
     setCurrentTime(0)
     setDisabled(false)
     setIsPlaying(true)
     sessionStorage.setItem('achieved', 'true')
+
+    if (displayMV == true) {
+      musicvideocallback()
+    }
   }
 
   //   When we have the MV
@@ -137,7 +247,11 @@ export default function Player ({ track, playing }) {
       }
     }
   }
+
   async function playSong (track) {
+    if (displayMV) {
+      setloadingMV(true)
+    }
     videoRef.current?.pause()
     setDisabled(true)
     setDuration(track.track.duration_ms / 1000)
@@ -180,9 +294,9 @@ export default function Player ({ track, playing }) {
 
   async function musicvideocallback () {
     const video = videoRef.current
-    if (!video) return
-    if (disabled) return
-
+    if (!video && !displayMV) return
+    if (disabled && !displayMV) return
+    console.log('made it to here')
     setDisplayMV(true)
     setloadingMV(true)
     // Open the music video in a new tab
@@ -198,7 +312,8 @@ export default function Player ({ track, playing }) {
         ' Official Music Video'
     )
     const id = sr.results[0]['video_id']
-    const vid = getVid(tube, id)
+    setmvYoutubeURL('https://www.youtube.com/watch?v=' + id)
+    const vid = await getVid(tube, id)
 
     sessionStorage.setItem('achievedMV', 'false')
     setMvURL("''")
@@ -222,6 +337,22 @@ export default function Player ({ track, playing }) {
     }
   }
 
+  async function lyricCallback () {
+    if (displayLyrics == true) {
+      setDisplayLyrics(false)
+    } else {
+      setDisplayLyrics(true)
+      const client = new Client()
+      const query = {
+        track_name: track.track.name,
+        artist_name: assembleArtistString(track.track.artists)
+      }
+
+      const syncedLyrics = await client.getSynced(query)
+      setLyrics(syncedLyrics)
+    }
+  }
+
   const togglePlay = () => {
     const video = videoRef.current
     if (!video) return
@@ -229,9 +360,11 @@ export default function Player ({ track, playing }) {
 
     if (video.paused) {
       video.play()
+      mvRef.current?.play()
       setIsPlaying(true)
     } else {
       video.pause()
+      mvRef.current?.pause()
       setIsPlaying(false)
     }
   }
@@ -278,7 +411,18 @@ export default function Player ({ track, playing }) {
             <div className='flex flex-col items-center w-[40%]'>
               <div className='flex items-center gap-4 mb-2'>
                 {/* <img src='/shuffle.svg' className='w-4 h-4 text-green-500' /> */}
-                <button>{'<<'}</button>
+                <button
+                  className='cursor-pointer'
+                  onClick={() => superCallback('prev')}
+                  disabled={disabled}
+                >
+                  <img
+                    src={NextImage}
+                    width={17}
+                    height={17}
+                    className='rotate-180 hover:scale-105 transition-all'
+                  />
+                </button>
                 <button
                   onClick={togglePlay}
                   disabled={disabled}
@@ -286,7 +430,18 @@ export default function Player ({ track, playing }) {
                 >
                   {isPlaying ? '❚❚' : '▶'}
                 </button>
-                <button>{'>>'}</button>
+                <button
+                  className='cursor-pointer'
+                  onClick={() => superCallback('next')}
+                  disabled={disabled}
+                >
+                  <img
+                    src={NextImage}
+                    width={17}
+                    height={17}
+                    className='hover:scale-105 transition-all'
+                  />
+                </button>
                 {/* <img src='/queue.svg' className='w-4 h-4 text-green-500' /> */}
               </div>
               <div className='flex items-center gap-2 w-full'>
@@ -331,7 +486,13 @@ export default function Player ({ track, playing }) {
             <div className='flex items-center gap-4 w-[30%] justify-end'>
               <img src='/device.svg' className='w-4 h-4 text-green-500' />
               <img src='/lyrics.svg' className='w-4 h-4' />
-              <img src='/queue.svg' className='w-4 h-4' />
+              <div>
+                <img
+                  src={Microphone}
+                  className='w-4 h-4 cursor-pointer hover:scale-110 transition-transform'
+                  onClick={() => lyricCallback()}
+                />
+              </div>
               <div>
                 <img
                   src={Clapperboard}
@@ -373,7 +534,103 @@ export default function Player ({ track, playing }) {
         </div>
       )}
 
+      {/* MV */}
       {displayMV && (
+        <div
+          className='z-[200] bg-gradient-to-b from-pink-900 to-pink-700 text-white absolute inset-0 m-auto w-[55%] h-[65%] flex flex-col items-center justify-center shadow-lg rounded-lg shadow-lg'
+          ref={mvModalRef}
+          style={{
+            left: mvPosition.x,
+            top: mvPosition.y,
+            width: mvSize.width,
+            height: mvSize.height
+          }}
+        >
+          <div className='w-full'>
+            {loadingMV && (
+              <>
+                <div
+                  className='absolute top-3 h-full w-full cursor-grab'
+                  onMouseDown={handleMvMouseDown}
+                >
+                  <button
+                    className='w-[100%] ml-3 text-xl transitions-all text-left cursor-pointer hover:text-red-500 '
+                    onClick={() => {
+                      setDisplayMV(false)
+                      setloadingMV(false)
+                      setMvURL('')
+                    }}
+                  >
+                    <img src={RemoveImage} width={30} height={30} alt='Close' />
+                  </button>
+                  <h1
+                    className='noto text-4xl text-center mt-[20%]'
+                    onMouseDown={handleMvMouseDown}
+                  >
+                    Loading Music Video....
+                  </h1>
+                </div>
+              </>
+            )}
+            {!loadingMV && (
+              <div className=' mt-2 mb-1  flex w-full'>
+                <button
+                  className='w-[50%] ml-3 text-xl transitions-all text-left cursor-pointer hover:text-red-500 '
+                  onClick={() => {
+                    setDisplayMV(false)
+                    setloadingMV(false)
+                    setMvURL('')
+                  }}
+                >
+                  <img src={RemoveImage} width={30} height={30} alt='Close' />
+                </button>
+                <p className='w-[50%] transitions-all flex justify-end mr-3 cursor-pointer'>
+                  <img
+                    src={OutImage}
+                    width={30}
+                    height={30}
+                    alt='Exit'
+                    className='mr-3'
+                    onClick={() => window.open(mvYoutubeURL)}
+                  />
+                  <img
+                    src={maximizedState == 0 ? MaximizeImage : MinimizeImage}
+                    width={30}
+                    height={30}
+                    alt={maximizedState == 0 ? 'Full Screen' : 'Minimize'}
+                    onClick={() => handleFullScreen()}
+                  />
+                </p>
+                <h1 className='absolute font-bold text-md ml-[50px] truncate'>
+                  Music Video
+                </h1>
+              </div>
+            )}
+          </div>
+
+          <video
+            src={mvURL}
+            autoPlay
+            onLoadedMetadata={() => mv_callback_end()}
+            ref={mvRef}
+            muted
+            className={
+              loadingMV
+                ? 'hidden'
+                : 'w-full h-full rounded-b-xl cursor-grab object-cover'
+            }
+            onMouseDown={handleMvMouseDown}
+          />
+
+          <div
+            className='absolute bottom-0 right-0 w-4 h-4 bg-white cursor-se-resize'
+            onMouseDown={handleMvResizeMouseDown}
+          />
+        </div>
+      )}
+
+      {/* Lyrics */}
+      {displayLyrics && (
         <div className='z-[200] bg-white absolute inset-0 m-auto w-[60%] h-[70%] flex flex-col items-center justify-center shadow-lg rounded-lg shadow-lg'>
           {loadingMV && (
             <h1 className='text-black noto text-4xl text-center '>
@@ -381,7 +638,7 @@ export default function Player ({ track, playing }) {
             </h1>
           )}
           {!loadingMV && (
-            <div className='flex  w-full p-2 text-black'>
+            <div className='flex w-full p-2 text-black'>
               <p
                 className='w-[50%] transitions-all text-left cursor-pointer hover:text-red-500 '
                 onClick={() => {
@@ -407,13 +664,11 @@ export default function Player ({ track, playing }) {
           <video
             src={mvURL}
             autoPlay
-            onLoadedData={() => mv_callback_end()}
+            onLoadedMetadata={() => mv_callback_end()}
             ref={mvRef}
             muted
             className={
-              loadingMV
-                ? 'w-ful h-full scale-90'
-                : 'w-full h-full scale-90 rounded-lg cursor-pointer'
+              loadingMV ? 'hidden' : 'w-[95%] p-2 rounded-xl cursor-pointer'
             }
           />
         </div>

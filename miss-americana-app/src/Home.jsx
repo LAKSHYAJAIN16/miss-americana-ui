@@ -15,6 +15,8 @@ export default function Home () {
   const [track, setTrack] = useState(null)
   const [currentlyPlaying, setCurrentlyPlaying] = useState(false)
   const [playlist, setPlaylist] = useState({})
+  const [tracks, setTracks] = useState([])
+  const [trackIdx, setTrackIdx] = useState()
 
   useEffect(() => {
     const res = getAuthResponse()
@@ -57,6 +59,21 @@ export default function Home () {
     return { type: 'error' }
   }
 
+  async function superFunction (payload) {
+    console.log(payload)
+    if (payload == 'prev') {
+      if (trackIdx != 0) {
+        console.log(tracks)
+        playTrack(tracks[trackIdx - 1], trackIdx - 1)
+        
+      }
+    }
+    if (payload == 'next') {
+      if (trackIdx+ 1 != tracks.length) {
+        playTrack(tracks[trackIdx + 1], trackIdx + 1)
+      }
+    }
+  }
   /*
   https://rr2---sn-jvbxjv-tihz.googlevideo.com/videoplayback
   ?expire=1748812241
@@ -156,6 +173,7 @@ export default function Home () {
 
   function playTrack (track_sup, index) {
     setTrack(track_sup)
+    setTrackIdx(index)
     setCurrentlyPlaying(true)
   }
 
@@ -180,19 +198,21 @@ export default function Home () {
             <LikedSongs
               token={token}
               playTrack={playTrack}
-              currentlyPlaying={null}
+              currentlyPlaying={currentlyPlaying}
+              setTracksSuper={setTracks}
+              trackidx={trackIdx}
             />
           )}
           {state === 2 && (
             <StandardPlaylist
               token={token}
               playTrack={playTrack}
-              currentlyPlaying={null}
+              currentlyPlaying={currentlyPlaying}
               playlist={playlist}
             />
           )}
         </div>
-        <Player track={track} playing={currentlyPlaying} />
+        <Player track={track} playing={currentlyPlaying} superCallback={superFunction}/>
       </div>
     </>
   )

@@ -13,8 +13,8 @@
     "windows": [
       {
         "title": "miss-americana-app",
-        "width": 1920,
-        "height": 1080
+        "decorations": false,
+        "maximized": true
       }
     ],
     "security": {
