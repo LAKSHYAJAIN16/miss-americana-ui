@@ -12,6 +12,7 @@ import RemoveImage from '../assets/remove.png'
 import MaximizeImage from '../assets/maximize.png'
 import MinimizeImage from '../assets/minimize.png'
 import { searchYouTube } from '../lib/searchYt'
+import { ytURL } from '../lib/ytURL'
 
 export default function Player ({ track, playing, superCallback }) {
   const [url, setUrl] = useState('')
@@ -242,7 +243,7 @@ export default function Player ({ track, playing, superCallback }) {
     return () => video.removeEventListener('timeupdate', updateTime)
   }, [isDragging, disabled])
 
-  const handleSeek = e => {
+  const handleSeek = async e => {
     const rect = progressRef.current.getBoundingClientRect()
     const percent = Math.min(
       Math.max((e.clientX - rect.left) / rect.width, 0),
@@ -250,10 +251,21 @@ export default function Player ({ track, playing, superCallback }) {
     )
     const newTime = percent * duration
     videoRef.current.currentTime = newTime
-
+    if (displayLyrics == true) {
+      for (let index = 0; index < lyrics.length; index++) {
+        const j = lyrics[index]
+        if (j['startTime'] > newTime) {
+          setCurrentLyric({ idx: index - 1, ...lyrics[index - 1] })
+          await new Promise(r => setTimeout(r, 200))
+          setCurrentTime(newTime)
+          document
+            .getElementById('lyric:' + (index - 1).toString())
+            .scrollIntoView({ behavior: 'smooth', block: 'center' })
+          break
+        }
+      }
+    }
     if (mvRef.current) mvRef.current.currentTime = newTime
-
-    setCurrentTime(newTime)
   }
 
   const startDrag = () => {
@@ -364,22 +376,16 @@ export default function Player ({ track, playing, superCallback }) {
     videoRef.current?.pause()
     setDisabled(true)
     setDuration(track.track.duration_ms / 1000)
-    const tube = await Innertube.create({
-      fetch: fetchBackend
-    })
 
     // Get the name
-    console.log("yeah. we're here")
-    const sr = await searchYouTube(
+    const sr = await ytURL(
       track.track.name +
         ' by ' +
-        assembleArtistString(track.track.artists) +
+        track.track.artists[0].name +
         ' Official Audio'
     )
-    const id = sr[0]
-    console.log(id)
 
-    const video = await getVid(tube, id)
+    const video = { url: sr }
     sessionStorage.setItem('achieved', 'false')
     setUrl("''")
 
@@ -409,21 +415,23 @@ export default function Player ({ track, playing, superCallback }) {
     console.log('made it to here')
     setDisplayMV(true)
     setloadingMV(true)
-    // Open the music video in a new tab
-    const tube = await Innertube.create({
-      fetch: fetchBackend
-    })
 
     // Get the name
-    const sr = await tube.search(
+    const sr = await searchYouTube(
       track.track.name +
         ' by ' +
         assembleArtistString(track.track.artists) +
         ' Official Music Video'
     )
-    const id = sr.results[0]['video_id']
+    const id = sr[0]
     setmvYoutubeURL('https://www.youtube.com/watch?v=' + id)
-    const vid = await getVid(tube, id)
+    const video_loc = await ytURL(
+      track.track.name +
+        ' by ' +
+        assembleArtistString(track.track.artists) +
+        ' Official Music Video'
+    )
+    const vid = { url: video_loc }
 
     sessionStorage.setItem('achievedMV', 'false')
     setMvURL("''")
@@ -466,6 +474,20 @@ export default function Player ({ track, playing, superCallback }) {
       } else {
         setLyrics(syncedLyrics)
         setLoadingLyrics(false)
+        if (isPlaying == true) {
+          const dur = videoRef.current.currentTime
+          for (let index = 0; index < syncedLyrics.length; index++) {
+            const j = syncedLyrics[index]
+            if (j['startTime'] > dur) {
+              setCurrentLyric({ idx: index - 1, ...syncedLyrics[index - 1] })
+              await new Promise(r => setTimeout(r, 200))
+              document
+                .getElementById('lyric:' + (index - 1).toString())
+                .scrollIntoView({ behavior: 'smooth', block: 'center' })
+              break
+            }
+          }
+        }
       }
     }
   }
@@ -474,13 +496,13 @@ export default function Player ({ track, playing, superCallback }) {
     const video = videoRef.current
     if (currentLyric.idx == lyrics.length - 1) return
     if (lyrics.length <= 0) return
-    console.log(
-      video.currentTime + ' : ' + lyrics[currentLyric.idx + 1]['startTime']
-    )
+    // console.log(
+    //   video.currentTime + ' : ' + lyrics[currentLyric.idx + 1]['startTime']
+    // )
     setCurrentTime(video.currentTime)
     const lTime = lyrics[currentLyric.idx + 1]['startTime']
     if (video.currentTime > lTime) {
-      console.log('YES')
+      // console.log('YES')
       document
         .getElementById('lyric:' + (currentLyric.idx + 1).toString())
         .scrollIntoView({ behavior: 'smooth', block: 'center' })

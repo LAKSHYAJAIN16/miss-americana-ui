@@ -23,7 +23,8 @@
   },
   "bundle": {
     "externalBin": [
-      "binaries/ytsearch.exe"
+      "binaries/ytsearch",
+      "binaries/innersearch"
     ]
   }
 }
