@@ -10,20 +10,36 @@
     "opener:default",
     {
       "identifier": "fs:allow-open",
-      "allow": [{ "path": "$APPDATA/*" }]
-    },
+      "allow": [
         {
+          "path": "$APPDATA/*"
+        }
+      ]
+    },
+    {
       "identifier": "fs:write-all",
-      "allow": [{ "path": "$APPDATA/*" }]
-    },
+      "allow": [
         {
-      "identifier": "fs:read-all",
-      "allow": [{ "path": "$APPDATA/*" }]
+          "path": "$APPDATA/*"
+        }
+      ]
     },
-    { 
-    "identifier": "fs:allow-open",
-    "allow": [{ "path": "$HOME/**" }]
-  },
+    {
+      "identifier": "fs:read-all",
+      "allow": [
+        {
+          "path": "$APPDATA/*"
+        }
+      ]
+    },
+    {
+      "identifier": "fs:allow-open",
+      "allow": [
+        {
+          "path": "$HOME/**"
+        }
+      ]
+    },
     {
       "identifier": "http:default",
       "allow": [
@@ -41,6 +57,18 @@
         }
       ]
     },
-    "fs:default"
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        {
+          "name": "binaries/ytsearch.exe-x86_64-pc-windows-msvc.exe",
+          "sidecar": true
+        }
+      ]
+    },
+    "shell:allow-open",
+    "fs:default",
+    "http:default",
+    "shell:default"
   ]
 }

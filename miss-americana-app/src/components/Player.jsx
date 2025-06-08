@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { assembleArtistString } from './LikedSongs2'
 import Innertube from 'youtubei.js'
 import { fetchBackend } from '../lib/functions'
@@ -11,28 +11,42 @@ import OutImage from '../assets/out.png'
 import RemoveImage from '../assets/remove.png'
 import MaximizeImage from '../assets/maximize.png'
 import MinimizeImage from '../assets/minimize.png'
+import { searchYouTube } from '../lib/searchYt'
 
 export default function Player ({ track, playing, superCallback }) {
   const [url, setUrl] = useState('')
   const [mvURL, setMvURL] = useState('')
+
   const videoRef = useRef(null)
   const mvRef = useRef(null)
   const progressRef = useRef(null)
+
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
   const [isPlaying, setIsPlaying] = useState(true)
   const [volume, setVolume] = useState(1)
   const [disabled, setDisabled] = useState(true)
+
   const [mvYoutubeURL, setmvYoutubeURL] = useState('')
   const [loadingMV, setloadingMV] = useState(false)
   const [displayMV, setDisplayMV] = useState(false)
+
   const [displayLyrics, setDisplayLyrics] = useState(false)
   const [lyrics, setLyrics] = useState([])
+  const [loadingLyrics, setLoadingLyrics] = useState(false)
+  const lyricsModalRef = useRef(null)
+  const [currentLyric, setCurrentLyric] = useState({ idx: -1 })
+  const [lyricsPosition, setLyricsPosition] = useState({ x: 0, y: 0 })
+  const [lyricsSize, setLyricsSize] = useState({ width: 500, height: 600 })
+  const [lyricsIsDragging, setLyricsIsDragging] = useState(false)
+  const [lyricsOffset, setLyricsOffset] = useState({ x: 0, y: 0 })
+  const [lyricsLastFullScreenVariables, setLyricsLastFullScreenVariables] =
+    useState([{}, {}])
 
   const mvModalRef = useRef(null)
   const [mvPosition, setMvPosition] = useState({ x: 0, y: 0 })
-  const [mvSize, setMvSize] = useState({ width: 800, height: 500 })
+  const [mvSize, setLyricSize] = useState({ width: 800, height: 500 })
   const [mvIsDragging, setMvIsDragging] = useState(false)
   const [mvOffset, setMvOffset] = useState({ x: 0, y: 0 })
   const [maximizedState, setMaximizedState] = useState(0)
@@ -48,6 +62,64 @@ export default function Player ({ track, playing, superCallback }) {
       x: e.clientX - mvPosition.x,
       y: e.clientY - mvPosition.y
     })
+  }
+
+  const handleLyricMouseDown = e => {
+    setLyricsIsDragging(true)
+    setLyricsOffset({
+      x: e.clientX - lyricsPosition.x,
+      y: e.clientY - lyricsPosition.y
+    })
+  }
+
+  const handleLyricResizeMouseDown = e => {
+    e.preventDefault()
+    setMaximizedState(0)
+    const lyricStartX = e.clientX
+    const lyricStartWidth = lyricsModalRef.current.offsetWidth
+
+    const doLyricResize = e => {
+      const deltaX = e.clientX - lyricStartX
+
+      // Calculate new width and height based on locked ratio
+      const newWidth = Math.max(300, lyricStartWidth + deltaX)
+      const newHeight =
+        newWidth /
+        (lyricsModalRef.current.offsetWidth /
+          lyricsModalRef.current.offsetHeight)
+
+      setLyricsSize({ width: newWidth, height: newHeight })
+    }
+
+    const stopLyricResize = () => {
+      document.removeEventListener('mousemove', doLyricResize)
+      document.removeEventListener('mouseup', stopLyricResize)
+    }
+
+    document.addEventListener('mousemove', doLyricResize)
+    document.addEventListener('mouseup', stopLyricResize)
+  }
+
+  // Handle Fullscreen
+  const handleLyricFullScreen = () => {
+    if (maximizedState == 0) {
+      setLyricsLastFullScreenVariables([lyricsPosition, lyricsSize])
+      setLyricsSize({
+        width:
+          (mvModalRef.current.offsetWidth / mvModalRef.current.offsetHeight) *
+          window.innerHeight *
+          0.98,
+        height: window.innerHeight * 0.98
+      })
+      setLyricsPosition({ x: 0, y: 0 })
+      setMaximizedState(1)
+    }
+
+    if (maximizedState == 1) {
+      setLyricsSize(lyricsLastFullScreenVariables[1])
+      setLyricsPosition(lyricsLastFullScreenVariables[0])
+      setMaximizedState(0)
+    }
   }
 
   useEffect(() => {
@@ -70,25 +142,43 @@ export default function Player ({ track, playing, superCallback }) {
     }
   }, [mvIsDragging, mvOffset])
 
+  useEffect(() => {
+    const handleLyricsMouseMove = e => {
+      if (!lyricsIsDragging) return
+      setLyricsPosition({
+        x: e.clientX - lyricsOffset.x,
+        y: e.clientY - lyricsOffset.y
+      })
+    }
+
+    const handleLyricsMouseUp = () => setLyricsIsDragging(false)
+
+    document.addEventListener('mousemove', handleLyricsMouseMove)
+    document.addEventListener('mouseup', handleLyricsMouseUp)
+
+    return () => {
+      document.removeEventListener('mousemove', handleLyricsMouseMove)
+      document.removeEventListener('mouseup', handleLyricsMouseUp)
+    }
+  }, [lyricsIsDragging, lyricsOffset])
+
   // Handle Resizing
   const handleMvResizeMouseDown = e => {
     e.preventDefault()
-    setMaximizedState(0);
+    setMaximizedState(0)
     const mvStartX = e.clientX
-    const mvStartY = e.clientY
     const mvStartWidth = mvModalRef.current.offsetWidth
-    const mvStartHeight = mvModalRef.current.offsetHeight
 
     const doMvResize = e => {
       const deltaX = e.clientX - mvStartX
 
       // Calculate new width and height based on locked ratio
-      const newWidth = Math.max(440, mvStartWidth + deltaX)
+      const newWidth = Math.max(550, mvStartWidth + deltaX)
       const newHeight =
         newWidth /
         (mvModalRef.current.offsetWidth / mvModalRef.current.offsetHeight)
 
-      setMvSize({ width: newWidth, height: newHeight })
+      setLyricSize({ width: newWidth, height: newHeight })
     }
 
     const stopMvResize = () => {
@@ -101,10 +191,10 @@ export default function Player ({ track, playing, superCallback }) {
   }
 
   // Handle Fullscreen
-  const handleFullScreen = () => {
+  const handleMvFullScreen = () => {
     if (maximizedState == 0) {
       setLastFullScreenVariables([mvPosition, mvSize])
-      setMvSize({
+      setLyricSize({
         width:
           (mvModalRef.current.offsetWidth / mvModalRef.current.offsetHeight) *
           window.innerHeight *
@@ -116,7 +206,7 @@ export default function Player ({ track, playing, superCallback }) {
     }
 
     if (maximizedState == 1) {
-      setMvSize(lastFullScreenVariables[1])
+      setLyricSize(lastFullScreenVariables[1])
       setMvPosition(lastFullScreenVariables[0])
       setMaximizedState(0)
     }
@@ -192,18 +282,37 @@ export default function Player ({ track, playing, superCallback }) {
     }
   }, [isDragging])
 
-  useEffect(() => {
-    const video = videoRef.current
-    if (!video) return
-    if (disabled) return
+  // useLayoutEffect(() => {
+  //   const video = videoRef.current
+  //   if (disabled) return
 
-    const updateTime = () => setCurrentTime(video.currentTime)
-    video.addEventListener('timeupdate', updateTime)
+  //   const updateTime = () => {
+  //     console.log(video.currentTime)
+  //     console.log(lyrics[currentLyric.idx + 1]['startTime'])
+  //     setCurrentTime(video.currentTime)
+  //     if (currentLyric.idx == lyrics.length - 1) return
 
-    return () => {
-      video.removeEventListener('timeupdate', updateTime)
-    }
-  }, [])
+  //     const lTime = lyrics[currentLyric.idx + 1]['startTime']
+  //     if (video.currentTime > lTime) {
+  //       console.log('YES')
+  //       document
+  //         .getElementById('lyric:' + (currentLyric.idx + 1).toString())
+  //         .scrollIntoView({ behavior: 'smooth', block: 'center' })
+
+  //       setCurrentLyric({
+  //         ...lyrics[currentLyric.idx + 1],
+  //         idx: currentLyric.idx + 1
+  //       })
+  //     }
+  //   }
+  //   document.getElementById('vid').addEventListener('timeupdate', updateTime)
+
+  //   return () => {
+  //     document
+  //       .getElementById('vid')
+  //       .removeEventListener('timeupdate', updateTime)
+  //   }
+  // }, [])
 
   useEffect(() => {
     setCurrentTime(0)
@@ -260,13 +369,14 @@ export default function Player ({ track, playing, superCallback }) {
     })
 
     // Get the name
-    const sr = await tube.search(
+    console.log("yeah. we're here")
+    const sr = await searchYouTube(
       track.track.name +
         ' by ' +
         assembleArtistString(track.track.artists) +
         ' Official Audio'
     )
-    const id = sr.results[0]['video_id']
+    const id = sr[0]
     console.log(id)
 
     const video = await getVid(tube, id)
@@ -342,6 +452,8 @@ export default function Player ({ track, playing, superCallback }) {
       setDisplayLyrics(false)
     } else {
       setDisplayLyrics(true)
+      setLoadingLyrics(true)
+      setCurrentLyric({ idx: -1 })
       const client = new Client()
       const query = {
         track_name: track.track.name,
@@ -349,7 +461,34 @@ export default function Player ({ track, playing, superCallback }) {
       }
 
       const syncedLyrics = await client.getSynced(query)
-      setLyrics(syncedLyrics)
+      if (syncedLyrics == null) {
+        setLoadingLyrics(false)
+      } else {
+        setLyrics(syncedLyrics)
+        setLoadingLyrics(false)
+      }
+    }
+  }
+
+  const updateTime = () => {
+    const video = videoRef.current
+    if (currentLyric.idx == lyrics.length - 1) return
+    if (lyrics.length <= 0) return
+    console.log(
+      video.currentTime + ' : ' + lyrics[currentLyric.idx + 1]['startTime']
+    )
+    setCurrentTime(video.currentTime)
+    const lTime = lyrics[currentLyric.idx + 1]['startTime']
+    if (video.currentTime > lTime) {
+      console.log('YES')
+      document
+        .getElementById('lyric:' + (currentLyric.idx + 1).toString())
+        .scrollIntoView({ behavior: 'smooth', block: 'center' })
+
+      setCurrentLyric({
+        ...lyrics[currentLyric.idx + 1],
+        idx: currentLyric.idx + 1
+      })
     }
   }
 
@@ -530,6 +669,8 @@ export default function Player ({ track, playing, superCallback }) {
             autoPlay
             onLoadedMetadata={() => callback_end()}
             ref={videoRef}
+            id='vid'
+            onTimeUpdate={() => updateTime()}
           />
         </div>
       )}
@@ -573,24 +714,33 @@ export default function Player ({ track, playing, superCallback }) {
               </>
             )}
             {!loadingMV && (
-              <div className=' mt-2 mb-1  flex w-full'>
+              <div
+                className='unselectable mt-3 mb-1 flex w-full cursor-grab'
+                onMouseDown={handleMvMouseDown}
+              >
                 <button
-                  className='w-[50%] ml-3 text-xl transitions-all text-left cursor-pointer hover:text-red-500 '
+                  className='w-[50%] ml-3 text-xl transitions-all text-left cursor-grab hover:text-red-500 '
                   onClick={() => {
                     setDisplayMV(false)
                     setloadingMV(false)
                     setMvURL('')
                   }}
                 >
-                  <img src={RemoveImage} width={30} height={30} alt='Close' />
+                  <img
+                    src={RemoveImage}
+                    width={30}
+                    height={30}
+                    alt='Close'
+                    className='cursor-pointer'
+                  />
                 </button>
-                <p className='w-[50%] transitions-all flex justify-end mr-3 cursor-pointer'>
+                <p className='w-[50%] transitions-all flex justify-end mr-3'>
                   <img
                     src={OutImage}
                     width={30}
                     height={30}
                     alt='Exit'
-                    className='mr-3'
+                    className='mr-3 cursor-pointer'
                     onClick={() => window.open(mvYoutubeURL)}
                   />
                   <img
@@ -598,7 +748,8 @@ export default function Player ({ track, playing, superCallback }) {
                     width={30}
                     height={30}
                     alt={maximizedState == 0 ? 'Full Screen' : 'Minimize'}
-                    onClick={() => handleFullScreen()}
+                    onClick={() => handleMvFullScreen()}
+                    className='cursor-pointer'
                   />
                 </p>
                 <h1 className='absolute font-bold text-md ml-[50px] truncate'>
@@ -623,7 +774,7 @@ export default function Player ({ track, playing, superCallback }) {
           />
 
           <div
-            className='absolute bottom-0 right-0 w-4 h-4 bg-white cursor-se-resize'
+            className='absolute bottom-0 right-0 w-4 h-4 bg-white cursor-nw-resize'
             onMouseDown={handleMvResizeMouseDown}
           />
         </div>
@@ -631,45 +782,116 @@ export default function Player ({ track, playing, superCallback }) {
 
       {/* Lyrics */}
       {displayLyrics && (
-        <div className='z-[200] bg-white absolute inset-0 m-auto w-[60%] h-[70%] flex flex-col items-center justify-center shadow-lg rounded-lg shadow-lg'>
-          {loadingMV && (
-            <h1 className='text-black noto text-4xl text-center '>
-              Loading Music Video........
-            </h1>
-          )}
-          {!loadingMV && (
-            <div className='flex w-full p-2 text-black'>
-              <p
-                className='w-[50%] transitions-all text-left cursor-pointer hover:text-red-500 '
-                onClick={() => {
-                  setDisplayMV(false)
-                  setloadingMV(false)
-                  setMvURL('')
-                }}
+        <div
+          className='z-[200] bg-gradient-to-b from-gray-900 to-gray-800 text-white absolute inset-0 m-auto w-[55%] h-[90%] flex flex-col items-center justify-center shadow-lg rounded-lg shadow-lg'
+          ref={lyricsModalRef}
+          style={{
+            left: lyricsPosition.x,
+            top: lyricsPosition.y,
+            width: lyricsSize.width,
+            height: lyricsSize.height
+          }}
+        >
+          <div className='w-full'>
+            {loadingLyrics && (
+              <>
+                <div className='absolute top-3 h-full w-full cursor-grab'>
+                  <button
+                    className='w-[100%] ml-3 text-xl transitions-all text-left cursor-pointer hover:text-red-500 '
+                    onClick={() => {
+                      setDisplayLyrics(false)
+                      setLoadingLyrics(false)
+                      setLyrics([])
+                    }}
+                  >
+                    <img src={RemoveImage} width={30} height={30} alt='Close' />
+                  </button>
+                  <h1 className='noto text-4xl text-center mt-[20%]'>
+                    Loading Lyrics........
+                  </h1>
+                </div>
+              </>
+            )}
+            {!loadingLyrics && (
+              <div
+                className='justify-center flex flex-col cursor-grab unselectable'
+                onMouseDown={handleLyricMouseDown}
               >
-                X
-              </p>
-              <p
-                className='w-[50%] transitions-all text-right cursor-pointer hover:text-green-500'
-                onClick={() => {
-                  if (mvRef.current) {
-                    mvRef.current.requestFullscreen()
-                  }
-                }}
-              >
-                Full Screen
-              </p>
-            </div>
-          )}
-          <video
-            src={mvURL}
-            autoPlay
-            onLoadedMetadata={() => mv_callback_end()}
-            ref={mvRef}
-            muted
-            className={
-              loadingMV ? 'hidden' : 'w-[95%] p-2 rounded-xl cursor-pointer'
-            }
+                <div className=' mt-2 mb-1  flex w-full'>
+                  <button
+                    className='w-[50%] ml-3 text-xl transitions-all text-left  cursor-grab hover:text-red-500 '
+                    onClick={() => {
+                      setDisplayLyrics(false)
+                      setLoadingLyrics(false)
+                      setLyrics([])
+                    }}
+                  >
+                    <img
+                      src={RemoveImage}
+                      width={30}
+                      height={30}
+                      alt='Close'
+                      className='cursor-pointer'
+                    />
+                  </button>
+
+                  <p className='w-[50%] transitions-all flex justify-end mr-3 cursor-grab'>
+                    <img
+                      src={maximizedState == 0 ? MaximizeImage : MinimizeImage}
+                      width={30}
+                      height={30}
+                      alt={maximizedState == 0 ? 'Full Screen' : 'Minimize'}
+                      onClick={() => handleLyricFullScreen()}
+                      className='cursor-pointer'
+                    />
+                  </p>
+                  <h1 className='absolute font-bold text-md ml-[50px] truncate'>
+                    Lyrics
+                  </h1>
+                </div>
+                <div
+                  className={'overflow-y-scroll ml-6 pr-6 mb-2 mt-2'}
+                  style={{ height: lyricsSize.height - 60 }}
+                >
+                  {lyrics.length > 0 ? (
+                    <>
+                      {lyrics.map((e, idx) => (
+                        <div
+                          key={idx}
+                          onMouseDown={handleLyricMouseDown}
+                          className={
+                            maximizedState == 0 ? 'text-3xl' : 'text-4xl'
+                          }
+                        >
+                          {idx == currentLyric.idx ? (
+                            <h2
+                              id={'lyric:' + idx.toString()}
+                              className='unselectable  cursor-pointer font-bold mb-4 text-white'
+                            >
+                              {e.text}
+                            </h2>
+                          ) : (
+                            <h2
+                              id={'lyric:' + idx.toString()}
+                              className='unselectable  cursor-pointer font-bold mb-4 hover:text-white text-gray-300 opacity-85'
+                            >
+                              {e.text}
+                            </h2>
+                          )}
+                        </div>
+                      ))}
+                    </>
+                  ) : (
+                    <h1>Couldn't find any lyrics.</h1>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div
+            className='absolute bottom-0 right-0 w-4 h-4 bg-white cursor-nw-resize'
+            onMouseDown={handleLyricResizeMouseDown}
           />
         </div>
       )}

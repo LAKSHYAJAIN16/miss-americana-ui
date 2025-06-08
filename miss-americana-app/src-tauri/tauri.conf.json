@@ -20,5 +20,10 @@
     "security": {
       "csp": null
     }
+  },
+  "bundle": {
+    "externalBin": [
+      "binaries/ytsearch.exe"
+    ]
   }
 }
