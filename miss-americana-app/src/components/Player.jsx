@@ -356,19 +356,6 @@ export default function Player ({ track, playing, superCallback }) {
     setloadingMV(false)
   }
 
-  async function getVid (tube, id) {
-    for (let i = 0; i < 100000; i++) {
-      try {
-        const video = await tube.getStreamingData(id)
-        console.log(video.url)
-        return video
-      } catch (e) {
-        console.log(e)
-        console.log('fail!')
-      }
-    }
-  }
-
   async function playSong (track) {
     if (displayMV) {
       setloadingMV(true)
@@ -386,6 +373,7 @@ export default function Player ({ track, playing, superCallback }) {
     )
 
     const video = { url: sr }
+    console.log(sr);
     sessionStorage.setItem('achieved', 'false')
     setUrl("''")
 
@@ -548,7 +536,7 @@ export default function Player ({ track, playing, superCallback }) {
       {playing && (
         <div
           className={
-            'noto bottom-0 left-1/2 transform -translate-x-1/2 fixed w-[90%]  shadow-md p-4 h-20 z-50 rounded-lg ml-auto mr-auto ' +
+            'noto bottom-2 left-1/2 transform -translate-x-1/2 fixed w-[90%]  shadow-md p-4 h-20 z-50 rounded-lg ml-auto mr-auto ' +
             (disabled ? 'bg-gray-500' : 'bg-gray-900')
           }
         >
