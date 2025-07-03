@@ -15,47 +15,42 @@ import { searchYouTube } from '../lib/searchYt'
 import { ytURL } from '../lib/ytURL'
 
 export default function Player ({ track, playing, superCallback }) {
-  const [url, setUrl] = useState('')
-  const [mvURL, setMvURL] = useState('')
-
-  const videoRef = useRef(null)
-  const mvRef = useRef(null)
-  const progressRef = useRef(null)
-
-  const [currentTime, setCurrentTime] = useState(0)
-  const [duration, setDuration] = useState(0)
-  const [isDragging, setIsDragging] = useState(false)
-  const [isPlaying, setIsPlaying] = useState(true)
-  const [volume, setVolume] = useState(1)
-  const [disabled, setDisabled] = useState(true)
-
-  const [mvYoutubeURL, setmvYoutubeURL] = useState('')
-  const [loadingMV, setloadingMV] = useState(false)
-  const [displayMV, setDisplayMV] = useState(false)
-
-  const [displayLyrics, setDisplayLyrics] = useState(false)
-  const [lyrics, setLyrics] = useState([])
-  const [loadingLyrics, setLoadingLyrics] = useState(false)
-  const lyricsModalRef = useRef(null)
-  const [currentLyric, setCurrentLyric] = useState({ idx: -1 })
-  const [lyricsPosition, setLyricsPosition] = useState({ x: 0, y: 0 })
-  const [lyricsSize, setLyricsSize] = useState({ width: 500, height: 600 })
-  const [lyricsIsDragging, setLyricsIsDragging] = useState(false)
-  const [lyricsOffset, setLyricsOffset] = useState({ x: 0, y: 0 })
+ // State variables to manage the component's state
+  const [url, setUrl] = useState(''); // URL of the current song
+  const [mvURL, setMvURL] = useState(''); // URL of the music video
+  const videoRef = useRef(null); // Reference to the video element
+  const mvRef = useRef(null); // Reference to the music video element
+  const progressRef = useRef(null); // Reference to the progress bar element
+  const [currentTime, setCurrentTime] = useState(0); // Current time of the song
+  const [duration, setDuration] = useState(0); // Duration of the song
+  const [isDragging, setIsDragging] = useState(false); // Whether the user is dragging the progress bar
+  const [isPlaying, setIsPlaying] = useState(true); // Whether the song is playing
+  const [volume, setVolume] = useState(1); // Current volume
+  const [disabled, setDisabled] = useState(true); // Whether the player is disabled
+  const [mvYoutubeURL, setmvYoutubeURL] = useState(''); // URL of the YouTube music video
+  const [loadingMV, setloadingMV] = useState(false); // Whether the music video is loading
+  const [displayMV, setDisplayMV] = useState(false); // Whether to display the music video
+  const [displayLyrics, setDisplayLyrics] = useState(false); // Whether to display the lyrics
+  const [lyrics, setLyrics] = useState([]); // Lyrics of the song
+  const [loadingLyrics, setLoadingLyrics] = useState(false); // Whether the lyrics are loading
+  const lyricsModalRef = useRef(null); // Reference to the lyrics modal element
+  const [currentLyric, setCurrentLyric] = useState({ idx: -1 }); // Current lyric index
+  const [lyricsPosition, setLyricsPosition] = useState({ x: 0, y: 0 }); // Position of the lyrics modal
+  const [lyricsSize, setLyricsSize] = useState({ width: 500, height: 600 }); // Size of the lyrics modal
+  const [lyricsIsDragging, setLyricsIsDragging] = useState(false); // Whether the lyrics modal is being dragged
+  const [lyricsOffset, setLyricsOffset] = useState({ x: 0, y: 0 }); // Offset of the lyrics modal
   const [lyricsLastFullScreenVariables, setLyricsLastFullScreenVariables] =
-    useState([{}, {}])
-
-  const mvModalRef = useRef(null)
-  const [mvPosition, setMvPosition] = useState({ x: 0, y: 0 })
-  const [mvSize, setLyricSize] = useState({ width: 800, height: 500 })
-  const [mvIsDragging, setMvIsDragging] = useState(false)
-  const [mvOffset, setMvOffset] = useState({ x: 0, y: 0 })
-  const [maximizedState, setMaximizedState] = useState(0)
+    useState([{}, {}]); // Variables to store the last full-screen state of the lyrics modal
+  const mvModalRef = useRef(null); // Reference to the music video modal element
+  const [mvPosition, setMvPosition] = useState({ x: 0, y: 0 }); // Position of the music video modal
+  const [mvSize, setLyricSize] = useState({ width: 800, height: 500 }); // Size of the music video modal
+  const [mvIsDragging, setMvIsDragging] = useState(false); // Whether the music video modal is being dragged
+  const [mvOffset, setMvOffset] = useState({ x: 0, y: 0 }); // Offset of the music video modal
+  const [maximizedState, setMaximizedState] = useState(0); // Maximized state of the modals
   const [lastFullScreenVariables, setLastFullScreenVariables] = useState([
     {},
-    {}
-  ])
-
+    {},
+  ]); // Variables to store the last full-screen state of the music video modal
   // Handle Dragging
   const handleMvMouseDown = e => {
     setMvIsDragging(true)

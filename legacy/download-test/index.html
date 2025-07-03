@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Extract Audio from Video Example</title>
+  </head>
+  <body>
+    <h2>Extract Audio from Video</h2>
+
+    <video id="video" controls crossorigin="anonymous" width="600">
+      <source
+        src="https://rr7---sn-jvbxjv-tihz.googlevideo.com/videoplayback?expire=1751530403&ei=QudlaIqeLO-U2_gPgLTZ2AI&ip=2001%3A1970%3A535e%3Acd00%3A6160%3Ae678%3A2977%3Ac07d&id=o-AL8VdBiV-GZ0R5YXBWvyRooEZK6t0kgzYxQfWSSmECSv&itag=18&source=youtube&requiressl=yes&xpc=EgVo2aDSNQ%3D%3D&met=1751508802%2C&mh=9r&mm=31%2C29&mn=sn-jvbxjv-tihz%2Csn-tt1elnel&ms=au%2Crdu&mv=m&mvi=7&pcm2cms=yes&pl=42&rms=au%2Cau&gcr=ca&initcwndbps=3618750&bui=AY1jyLPME6uZjAkuJ9Cn_kd14cutmB_eQkn0JvLJttysZHPfBsUIgk-5HPGZ_KZQE9LA5WNw__YFsxjr&spc=l3OVKbAg8Tjn5WLizWp2F48k6MMv1oyHsX6Fxq-H9Sfx8xlG3OzEpIk2vu3CvoECtqcbTRuEbw6GQZPR8rvy0F5H&vprv=1&svpuc=1&mime=video%2Fmp4&ns=hz2t2AIDoZJMWzOS1-lL8FgQ&rqh=1&gir=yes&clen=2653751&ratebypass=yes&dur=124.435&lmt=1747695297652748&mt=1751508536&fvip=4&fexp=51355912&c=WEB&sefc=1&txp=2319224&n=zKIjfZL3VrZS0Q&sparams=expire%2Cei%2Cip%2Cid%2Citag%2Csource%2Crequiressl%2Cxpc%2Cgcr%2Cbui%2Cspc%2Cvprv%2Csvpuc%2Cmime%2Cns%2Crqh%2Cgir%2Cclen%2Cratebypass%2Cdur%2Clmt&lsparams=met%2Cmh%2Cmm%2Cmn%2Cms%2Cmv%2Cmvi%2Cpcm2cms%2Cpl%2Crms%2Cinitcwndbps&lsig=APaTxxMwRQIhAID4X5mgLjm3Ot01iyLYqJJBV141emW8iHFv3A5Y07epAiA7dtd4tOO3FRxW-KeA9VTXiO6U_KsKyZEYUwvwCsOfDg%3D%3D&sig=AJfQdSswRQIgVlSTFQmnqSqOZC8d30jWDg8QZiblZiAgIWJ63sGMJsoCIQCCJF6yqosYWjPiGLC7McVax21kFXrI52Yrw2MwDso06Q%3D%3D&cver=2.20250222.10.00"
+      />
+      Your browser does not support the video tag.
+    </video>
+    <br />
+    <button id="record">Record & Download Audio (5s)</button>
+
+    <script>
+      const video = document.getElementById('video')
+      const button = document.getElementById('record')
+
+      button.addEventListener('click', () => {
+        if (!video.captureStream) {
+          alert('captureStream API not supported in this browser')
+          return
+        }
+
+        const stream = video.captureStream()
+        const audioTracks = stream.getAudioTracks()
+
+        if (audioTracks.length === 0) {
+          alert('No audio track found in the video')
+          return
+        }
+
+        const audioStream = new MediaStream(audioTracks)
+        const options = { mimeType: 'audio/webm' }
+        const mediaRecorder = new MediaRecorder(audioStream, options)
+
+        const chunks = []
+
+        mediaRecorder.ondataavailable = event => {
+          if (event.data.size > 0) chunks.push(event.data)
+        }
+
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(chunks, { type: 'audio/webm' })
+          const url = URL.createObjectURL(blob)
+
+          const a = document.createElement('a')
+          a.style.display = 'none'
+          a.href = url
+          a.download = 'extracted-audio.webm'
+          document.body.appendChild(a)
+          a.click()
+
+          setTimeout(() => {
+            URL.revokeObjectURL(url)
+            document.body.removeChild(a)
+          }, 100)
+        }
+
+        mediaRecorder.start()
+        setTimeout(() => mediaRecorder.stop(), 5000)
+      })
+    </script>
+  </body>
+</html>

@@ -26,6 +26,7 @@
     "react-dom": "^18.3.1",
     "react-router": "^7.6.1",
     "react-spotify-auth": "^1.4.3",
+    "react-window": "^1.8.11",
     "tailwindcss": "^4.1.8",
     "youtube-search-api": "^1.2.2",
     "youtubei.js": "^13.4.0",

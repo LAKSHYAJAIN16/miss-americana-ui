@@ -1,0 +1,25 @@
+{
+  "bin": "index.js",
+  "name": "ytdownload",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "youtube-dl-exec": "^3.0.22",
+    "ytdl-core": "^0.29.7"
+  },
+  "pkg": {
+    "assets": [
+      "bin/yt-dlp.exe"
+    ],
+    "targets": [
+      "node18-win-x64"
+    ]
+  }
+}
