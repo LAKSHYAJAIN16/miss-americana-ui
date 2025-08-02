@@ -1,328 +1,291 @@
-  <!DOCTYPE html>
-  <html lang="en">
-    <head>
-      <meta charset="UTF-8" />
-      <title>Resilient Multi-File WebTorrent Client</title>
-      <script src="https://cdn.jsdelivr.net/npm/webtorrent/webtorrent.min.js"></script>
-      <style>
-        body {
-          background: #121212;
-          color: #eee;
-          font-family: Arial, sans-serif;
-          padding: 2rem;
-        }
-        input,
-        button {
-          background: #222;
-          border: 1px solid #444;
-          color: #eee;
-          padding: 0.5rem 1rem;
-          margin: 0.2rem 0.5rem 0.5rem 0;
-          border-radius: 5px;
-          font-size: 1rem;
-        }
-        button {
-          cursor: pointer;
-        }
-        #seeded-list {
-          margin-top: 1rem;
-        }
-        .torrent-item {
-          background: #1e1e1e;
-          padding: 1rem;
-          margin-bottom: 0.7rem;
-          border-radius: 6px;
-        }
-        .magnet-link {
-          font-family: monospace;
-          word-break: break-word;
-          color: #6cf;
-        }
-        audio {
-          margin-top: 0.5rem;
-          width: 100%;
-        }
-        .stop-btn {
-          background: #c44;
-          border: none;
-          color: #fff;
-          padding: 0.3rem 0.8rem;
-          border-radius: 4px;
-          margin-left: 1rem;
-        }
-        #log {
-          background: #111;
-          padding: 10px;
-          margin-top: 1.5rem;
-          height: 200px;
-          overflow-y: auto;
-          white-space: pre-wrap;
-          font-family: monospace;
-          border-radius: 6px;
-        }
-        #download-section {
-          margin-top: 2rem;
-        }
-      </style>
-    </head>
-    <body>
-      <h1>Resilient Multi-File WebTorrent Client</h1>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Resilient Multi-File WebTorrent Client</title>
+  <script src="https://cdn.jsdelivr.net/npm/webtorrent/webtorrent.min.js"></script>
+  <style>
+    body {
+      background: #121212;
+      color: #eee;
+      font-family: Arial, sans-serif;
+      padding: 2rem;
+    }
+    input, button {
+      background: #222;
+      border: 1px solid #444;
+      color: #eee;
+      padding: 0.5rem 1rem;
+      margin: 0.2rem 0.5rem 0.5rem 0;
+      border-radius: 5px;
+      font-size: 1rem;
+    }
+    button { cursor: pointer; }
+    #seeded-list { margin-top: 1rem; }
+    .torrent-item {
+      background: #1e1e1e;
+      padding: 1rem;
+      margin-bottom: 0.7rem;
+      border-radius: 6px;
+    }
+    .magnet-link {
+      font-family: monospace;
+      word-break: break-word;
+      color: #6cf;
+    }
+    audio {
+      margin-top: 0.5rem;
+      width: 100%;
+    }
+    .stop-btn {
+      background: #c44;
+      border: none;
+      color: #fff;
+      padding: 0.3rem 0.8rem;
+      border-radius: 4px;
+      margin-left: 1rem;
+    }
+    #log {
+      background: #111;
+      padding: 10px;
+      margin-top: 1.5rem;
+      height: 200px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      font-family: monospace;
+      border-radius: 6px;
+    }
+    #download-section { margin-top: 2rem; }
+  </style>
+</head>
+<body>
+  <h1>Resilient Multi-File WebTorrent Client</h1>
 
-      <input type="file" id="fileInput" accept="audio/mpeg" multiple />
-      <button id="seedBtn">Seed Selected Files</button>
+  <input type="file" id="fileInput" accept="audio/mpeg" multiple />
+  <button id="seedBtn">Seed Selected Files</button>
 
-      <div id="seeded-list"></div>
+  <div id="seeded-list"></div>
 
-      <div id="download-section">
-        <h2>Download by Magnet Link</h2>
-        <input type="text" id="magnetInput" placeholder="Paste magnet URI here" style="width: 60%" />
-        <button id="downloadBtn">Download MP3</button>
-        <audio id="player" controls style="display: block; margin-top: 20px"></audio>
-      </div>
+  <div id="download-section">
+    <h2>Download by Magnet Link</h2>
+    <input type="text" id="magnetInput" placeholder="Paste magnet URI here" style="width: 60%" />
+    <button id="downloadBtn">Download MP3</button>
+    <audio id="player" controls style="display: block; margin-top: 20px"></audio>
+  </div>
 
-      <div id="log"></div>
+  <div id="log"></div>
 
-      <script>
-        const client = new WebTorrent();
-        const wsUrl = "ws://localhost:5002";
-        const ws = new WebSocket(wsUrl);
+  <script>
+    const client = new WebTorrent();
+    const ws = new WebSocket("ws://localhost:5002");
+    const logEl = document.getElementById("log");
+    const seededList = document.getElementById("seeded-list");
+    const audioPlayer = document.getElementById("player");
 
-        const logEl = document.getElementById("log");
-        const seededList = document.getElementById("seeded-list");
-        const audioPlayer = document.getElementById("player");
+    const torrentsMap = new Map();
+    const CLIENT_ID = Math.random().toString(36).substring(2, 8);
 
-        const torrentsMap = new Map();
-        const downloadedMap = new Map();
+    const LOG_LEVELS = {
+      INFO: "INFO",
+      WS: "WEBSOCKET",
+      SEED: "SEED",
+      DOWNLOAD: "DOWNLOAD",
+      ERROR: "ERROR",
+      RESEED: "RESEED",
+      CACHE: "CACHE",
+    };
 
-        const LOG_LEVELS = {
-          INFO: "INFO",
-          WS: "WEBSOCKET",
-          SEED: "SEED",
-          DOWNLOAD: "DOWNLOAD",
-          ERROR: "ERROR",
-          RESEED: "RESEED",
-        };
+    function log(level, msg) {
+      const colorMap = {
+        INFO: "lightblue",
+        WEBSOCKET: "orange",
+        SEED: "lightgreen",
+        DOWNLOAD: "cyan",
+        ERROR: "tomato",
+        RESEED: "yellowgreen",
+        CACHE: "plum",
+      };
+      const span = document.createElement("span");
+      span.style.color = colorMap[level] || "white";
+      span.textContent = `[${new Date().toLocaleTimeString()}] [${level}] [Client:${CLIENT_ID}] ${msg}\n`;
+      logEl.appendChild(span);
+      logEl.scrollTop = logEl.scrollHeight;
+      if (level === "ERROR") console.error(msg);
+      else console.log(msg);
+    }
 
-        function log(level, msg) {
-          const colorMap = {
-            INFO: "lightblue",
-            WEBSOCKET: "orange",
-            SEED: "lightgreen",
-            DOWNLOAD: "cyan",
-            ERROR: "tomato",
-            RESEED: "yellowgreen",
-          };
-          const color = colorMap[level] || "white";
-          const line = `[${new Date().toLocaleTimeString()}] [${level}] ${msg}`;
-          const span = document.createElement("span");
-          span.style.color = color;
-          span.textContent = line + "\n";
-          logEl.appendChild(span);
-          logEl.scrollTop = logEl.scrollHeight;
-          console[level === "ERROR" ? "error" : "log"](line);
-        }
+    function sendWs(obj) {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(obj));
+        log(LOG_LEVELS.WS, `Sent: ${JSON.stringify(obj)}`);
+      } else {
+        log(LOG_LEVELS.ERROR, "WebSocket not open, cannot send: " + JSON.stringify(obj));
+      }
+    }
 
-        function sendWs(obj) {
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify(obj));
-          }
-        }
+    function announceSeed(infoHash, magnetURI) {
+      log(LOG_LEVELS.SEED, `Announcing seed: ${infoHash} with magnet: ${magnetURI}`);
+      sendWs({ type: "announce-seed", infoHash, magnetURI, clientId: CLIENT_ID });
+    }
 
-        function announceSeed(infoHash) {
-          sendWs({ type: "announce-seed", infoHash });
-        }
+    function announceStopSeed(infoHash) {
+      log(LOG_LEVELS.SEED, `Announcing stop seed: ${infoHash}`);
+      sendWs({ type: "stop-seed", infoHash, clientId: CLIENT_ID });
+    }
 
-        function announceStopSeed(infoHash) {
-          sendWs({ type: "stop-seed", infoHash });
-        }
+    function announceCache(infoHash) {
+      log(LOG_LEVELS.CACHE, `Announcing cache: ${infoHash}`);
+      sendWs({ type: "announce-cache", infoHash, clientId: CLIENT_ID });
+    }
 
-        function announceCache(infoHash) {
-          sendWs({ type: "announce-cache", infoHash });
-        }
+    function announceStopCache(infoHash) {
+      log(LOG_LEVELS.CACHE, `Announcing stop cache: ${infoHash}`);
+      sendWs({ type: "stop-cache", infoHash, clientId: CLIENT_ID });
+    }
 
-        function announceStopCache(infoHash) {
-          sendWs({ type: "stop-cache", infoHash });
-        }
+    ws.onopen = () => {
+      log(LOG_LEVELS.WS, "Connected to ws://localhost:5002");
+    };
 
-        ws.onopen = () => {
-          log(LOG_LEVELS.WS, `Connected to ${wsUrl}`);
-        };
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
 
-        ws.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            if (data.type === "start-seeding") {
-              handleReseedRequest(data.infoHash);
-            } else if (data.type === "new-seed") {
-              autoCacheAndReseed(data.infoHash);
-            }
-          } catch (err) {
-            log(LOG_LEVELS.ERROR, "WS parse error: " + err);
-          }
-        };
-
-        function autoCacheAndReseed(infoHash) {
-          if (torrentsMap.has(infoHash)) return;
-
-          const magnetURI = `magnet:?xt=urn:btih:${infoHash}`;
-          const existing = client.get(magnetURI);
-          if (existing) {
-            log(LOG_LEVELS.INFO, `Already caching ${infoHash}`);
-            return;
-          }
-
-          log(LOG_LEVELS.RESEED, `Auto-downloading and caching ${infoHash}`);
-
-          client.add(magnetURI, (torrent) => {
-            torrentsMap.set(infoHash, {
-              torrent,
-              magnetURI: torrent.magnetURI,
-              name: torrent.name,
-            });
-
-            torrent.on("done", () => {
-              announceCache(infoHash);
-              log(LOG_LEVELS.RESEED, `Cached ${torrent.name}`);
-            });
-          });
-        }
-
-        function handleReseedRequest(infoHash) {
-          const entry = torrentsMap.get(infoHash);
-
-          if (entry && entry.torrent && !entry.torrent.destroyed) {
-            if (entry.torrent.progress === 1) {
-              announceSeed(infoHash);
-              log(LOG_LEVELS.RESEED, `Reseeding ${infoHash}`);
-            } else {
-              log(LOG_LEVELS.RESEED, `Torrent exists but incomplete: ${infoHash}`);
-            }
-            return;
-          }
-
-          const magnetURI = `magnet:?xt=urn:btih:${infoHash}`;
-          const existing = client.get(magnetURI);
-          if (existing) {
-            log(LOG_LEVELS.INFO, `Already added for reseed: ${infoHash}`);
-            return;
-          }
-
-          log(LOG_LEVELS.RESEED, `Re-downloading to reseed ${infoHash}`);
-
-          client.add(magnetURI, (torrent) => {
-            torrentsMap.set(infoHash, {
-              torrent,
-              magnetURI: torrent.magnetURI,
-              name: torrent.name,
-            });
-
-            torrent.on("done", () => {
-              announceCache(torrent.infoHash);
-              announceSeed(torrent.infoHash);
-              log(LOG_LEVELS.RESEED, `Reseeded ${torrent.name}`);
-            });
-          });
-        }
-
-        function seedFiles() {
-          const files = document.getElementById("fileInput").files;
-          for (const file of files) {
-            client.seed(file, (torrent) => {
-              const infoHash = torrent.infoHash;
-              torrentsMap.set(infoHash, {
-                torrent,
-                magnetURI: torrent.magnetURI,
-                name: torrent.name,
-              });
-              renderTorrent(infoHash);
-              announceSeed(infoHash);
-              log(LOG_LEVELS.SEED, `Seeding ${torrent.name}`);
-            });
-          }
-        }
-
-        function renderTorrent(infoHash) {
-          const { torrent, magnetURI, name } = torrentsMap.get(infoHash);
-          const container = document.createElement("div");
-          container.className = "torrent-item";
-          container.innerHTML = `
-            <strong>${name}</strong><br/>
-            <span class="magnet-link">${magnetURI}</span><br/>
-            <audio controls></audio>
-            <button class="stop-btn">Stop Seeding</button>
-          `;
-          const audioEl = container.querySelector("audio");
-          torrent.files[0].getBlobURL((err, url) => {
-            if (!err) audioEl.src = url;
-          });
-          container.querySelector(".stop-btn").onclick = () => {
-            torrent.destroy(() => {
-              announceStopSeed(infoHash);
-              announceStopCache(infoHash);
-              torrentsMap.delete(infoHash);
-              container.remove();
-            });
-          };
-          seededList.appendChild(container);
-        }
-
-        function downloadFile() {
-          const magnetURI = document.getElementById("magnetInput").value.trim();
-          if (!magnetURI) {
-            log(LOG_LEVELS.ERROR, "No magnet URI provided.");
-            return;
-          }
-
-          const existing = client.get(magnetURI);
-          if (existing) {
-            log(LOG_LEVELS.INFO, `Already added: ${existing.name}`);
-            playTorrent(existing);
-            return;
-          }
-
-          client.add(magnetURI, (torrent) => {
-            downloadedMap.set(magnetURI, torrent);
-            torrentsMap.set(torrent.infoHash, {
-              torrent,
-              magnetURI,
-              name: torrent.name,
-            });
-
-            torrent.on("done", () => {
-              log(LOG_LEVELS.DOWNLOAD, `Finished downloading ${torrent.name}`);
-              announceCache(torrent.infoHash);
-            });
-
-            playTorrent(torrent);
-          });
-        }
-
-        function playTorrent(torrent) {
-          if (!torrent.files.length) {
-            log(LOG_LEVELS.ERROR, "Torrent has no files.");
-            return;
-          }
-
-          torrent.files[0].getBlobURL((err, url) => {
-            if (err) {
-              log(LOG_LEVELS.ERROR, "Failed to get blob URL: " + err.message);
+        switch (data.type) {
+          case "cache-torrent":
+            if (torrentsMap.has(data.infoHash)) {
+              log(LOG_LEVELS.CACHE, `Already cached torrent ${data.infoHash}, ignoring cache request.`);
               return;
             }
-            log(LOG_LEVELS.INFO, `Playing ${torrent.files[0].name}`);
-            audioPlayer.src = url;
-            audioPlayer.play().catch(() => log(LOG_LEVELS.ERROR, "Autoplay failed"));
-          });
+            log(LOG_LEVELS.CACHE, `Cache request received for ${data.infoHash} with magnetURI: ${data.magnetURI}`);
+
+            client.add(data.magnetURI, (torrent) => {
+              torrentsMap.set(data.infoHash, { torrent, magnetURI: data.magnetURI, name: torrent.name });
+              announceCache(data.infoHash);
+              log(LOG_LEVELS.CACHE, `Finished caching torrent: ${torrent.name} (${data.infoHash})`);
+
+              torrent.files[0].getBlobURL((err, url) => {
+                if (!err) {
+                  audioPlayer.src = url;
+                  audioPlayer.play();
+                  log(LOG_LEVELS.CACHE, `Playing cached file: ${torrent.name}`);
+                } else {
+                  log(LOG_LEVELS.ERROR, `Error playing cached file: ${err.message}`);
+                }
+              });
+            });
+            break;
+
+          case "stop-approved":
+            // Server approved this client to stop seeding after cache confirmed elsewhere
+            if (!torrentsMap.has(data.infoHash)) {
+              log(LOG_LEVELS.ERROR, `Stop approved but no torrent found: ${data.infoHash}`);
+              return;
+            }
+            const { torrent } = torrentsMap.get(data.infoHash);
+            torrent.destroy(() => {
+              announceStopSeed(data.infoHash);
+              announceStopCache(data.infoHash);
+              torrentsMap.delete(data.infoHash);
+              const container = [...seededList.children].find((c) =>
+                c.querySelector(".magnet-link")?.textContent.includes(data.infoHash)
+              );
+              if (container) container.remove();
+              log(LOG_LEVELS.INFO, `Stop seeding approved & completed for ${data.infoHash}`);
+            });
+            break;
+
+          case "stop-denied":
+            log(LOG_LEVELS.ERROR, `Stop seeding denied for ${data.infoHash}: ${data.reason}`);
+            break;
+
+          case "start-seeding":
+            if (torrentsMap.has(data.infoHash)) {
+              const cachedTorrent = torrentsMap.get(data.infoHash).torrent;
+              log(LOG_LEVELS.RESEED, `Start seeding request received for cached torrent ${data.infoHash}`);
+              client.seed(cachedTorrent.files, (torrent) => {
+                torrentsMap.set(data.infoHash, { torrent, magnetURI: data.magnetURI, name: torrent.name });
+                renderTorrent(data.infoHash);
+                announceSeed(data.infoHash, data.magnetURI);
+                log(LOG_LEVELS.RESEED, `Started seeding cached torrent: ${torrent.name} (${data.infoHash})`);
+              });
+            } else {
+              log(LOG_LEVELS.RESEED, `Torrent not cached for ${data.infoHash}. Adding and caching torrent first...`);
+              client.add(data.magnetURI, (torrent) => {
+                torrentsMap.set(data.infoHash, { torrent, magnetURI: data.magnetURI, name: torrent.name });
+                announceCache(data.infoHash);
+                log(LOG_LEVELS.CACHE, `Cached torrent: ${torrent.name} (${data.infoHash})`);
+                client.seed(torrent.files, (seededTorrent) => {
+                  torrentsMap.set(data.infoHash, { torrent: seededTorrent, magnetURI: data.magnetURI, name: seededTorrent.name });
+                  renderTorrent(data.infoHash);
+                  announceSeed(data.infoHash, data.magnetURI);
+                  log(LOG_LEVELS.RESEED, `Started seeding newly cached torrent: ${seededTorrent.name} (${data.infoHash})`);
+                });
+              });
+            }
+            break;
+
+          default:
+            log(LOG_LEVELS.WS, `Unknown message type: ${data.type}`);
         }
+      } catch (e) {
+        log(LOG_LEVELS.ERROR, "WS parse error: " + e.message);
+      }
+    };
 
-        document.getElementById("seedBtn").onclick = seedFiles;
-        document.getElementById("downloadBtn").onclick = downloadFile;
+    function seedFiles() {
+      const files = document.getElementById("fileInput").files;
+      for (const file of files) {
+        client.seed(file, (torrent) => {
+          const { infoHash, magnetURI, name } = torrent;
+          torrentsMap.set(infoHash, { torrent, magnetURI, name });
+          renderTorrent(infoHash);
+          announceSeed(infoHash, magnetURI);
+          announceCache(infoHash);
+          log(LOG_LEVELS.SEED, `Seeding ${name} (${infoHash})`);
+        });
+      }
+    }
 
-        window.addEventListener("beforeunload", () => {
-          for (const [infoHash, { torrent }] of torrentsMap.entries()) {
-            if (torrent.done) announceStopCache(infoHash);
-            if (torrent.progress === 1) announceStopSeed(infoHash);
+    function renderTorrent(infoHash) {
+      const { torrent, magnetURI, name } = torrentsMap.get(infoHash);
+      const container = document.createElement("div");
+      container.className = "torrent-item";
+      container.innerHTML = `
+        <strong>${name}</strong><br/>
+        <span class="magnet-link">${magnetURI}</span><br/>
+        <audio controls></audio>
+        <button class="stop-btn">Stop Seeding</button>
+      `;
+      const audioEl = container.querySelector("audio");
+      torrent.files[0].getBlobURL((err, url) => {
+        if (!err) audioEl.src = url;
+      });
+      container.querySelector(".stop-btn").onclick = () => {
+        log(LOG_LEVELS.INFO, `Stop seeding requested for ${infoHash}`);
+        sendWs({ type: "stop-seed-request", infoHash, clientId: CLIENT_ID });
+      };
+      seededList.appendChild(container);
+    }
+
+    function downloadFile() {
+      const magnetURI = document.getElementById("magnetInput").value.trim();
+      if (!magnetURI) return;
+
+      client.add(magnetURI, (torrent) => {
+        torrent.files[0].getBlobURL((err, url) => {
+          if (!err) {
+            audioPlayer.src = url;
+            audioPlayer.play();
+            log(LOG_LEVELS.DOWNLOAD, `Playing ${torrent.name}`);
+            announceCache(torrent.infoHash);
           }
         });
-      </script>
-    </body>
-  </html>
+      });
+    }
+
+    document.getElementById("seedBtn").onclick = seedFiles;
+    document.getElementById("downloadBtn").onclick = downloadFile;
+  </script>
+</body>
+</html>
