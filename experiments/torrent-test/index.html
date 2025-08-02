@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>MP3 Seeder & Downloader</title>
+  <script src="https://cdn.jsdelivr.net/npm/webtorrent/webtorrent.min.js"></script>
+  <style>
+    :root {
+      --bg: #fefefe;
+      --fg: #222;
+      --accent: #0066ff;
+      --card: #ffffff;
+      --border: #e0e0e0;
+      --radius: 12px;
+      --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      --status-bg: #f0f4ff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      max-width: 700px;
+      margin: 40px auto;
+      padding: 0 20px;
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 30px;
+      font-size: 28px;
+    }
+
+    section {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px 24px;
+      margin-bottom: 30px;
+    }
+
+    h3 {
+      margin-top: 0;
+      font-size: 20px;
+      color: var(--accent);
+    }
+
+    input[type="file"],
+    input[type="text"] {
+      width: 100%;
+      padding: 12px;
+      margin-top: 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 15px;
+    }
+
+    button {
+      background: var(--accent);
+      color: white;
+      padding: 10px 18px;
+      margin-top: 12px;
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-size: 15px;
+      transition: background 0.2s ease;
+    }
+
+    button:hover {
+      background: #004ecc;
+    }
+
+    #magnetURI {
+      word-break: break-all;
+      background: #f7f8fa;
+      padding: 12px;
+      margin-top: 12px;
+      border-radius: var(--radius);
+      font-family: monospace;
+      font-size: 13px;
+    }
+
+    #player audio {
+      margin-top: 16px;
+      width: 100%;
+    }
+
+    #player a {
+      display: inline-block;
+      margin-top: 10px;
+      font-size: 15px;
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    #player a:hover {
+      text-decoration: underline;
+    }
+
+    #status {
+      background: var(--status-bg);
+      color: var(--accent);
+      border: 1px dashed var(--accent);
+      padding: 10px 14px;
+      margin-top: 20px;
+      border-radius: var(--radius);
+      font-size: 14px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <h2>🎵 MP3 Seeder & Downloader</h2>
+
+  <section>
+    <h3>1️⃣ Upload MP3 to Seed</h3>
+    <input type="file" id="uploadFile" accept=".mp3" />
+    <button id="seedBtn">Seed & Generate Magnet Link</button>
+    <div id="magnetURI"></div>
+  </section>
+
+  <section>
+    <h3>2️⃣ Enter Magnet URI to Download & Play</h3>
+    <input type="text" id="inputMagnet" placeholder="Paste magnet URI here..." />
+    <button id="downloadBtn">Download & Play</button>
+    <div id="player"></div>
+  </section>
+
+  <div id="status"></div>
+
+  <script>
+    const client = new WebTorrent()
+    const statusEl = document.getElementById('status')
+
+    function updateStatus(msg) {
+      statusEl.textContent = msg
+      statusEl.style.display = 'block'
+    }
+
+    document.getElementById('seedBtn').onclick = () => {
+      const fileInput = document.getElementById('uploadFile')
+      if (!fileInput.files.length) {
+        updateStatus('Please select an MP3 file to seed.')
+        return
+      }
+
+      const file = fileInput.files[0]
+      updateStatus('Seeding file...')
+
+      client.seed(file, torrent => {
+        document.getElementById('magnetURI').textContent = torrent.magnetURI
+        updateStatus('Seeding started! Magnet URI generated below.')
+      })
+    }
+
+    document.getElementById('downloadBtn').onclick = () => {
+      const magnet = document.getElementById('inputMagnet').value.trim()
+      if (!magnet) {
+        updateStatus('Please enter a magnet URI to download.')
+        return
+      }
+
+      updateStatus('Connecting to peers and downloading...')
+
+      client.add(magnet, torrent => {
+        const mp3File = torrent.files.find(f => f.name.endsWith('.mp3'))
+        if (!mp3File) {
+          updateStatus('No MP3 file found in this torrent.')
+          return
+        }
+
+        updateStatus('Downloading full MP3 file...')
+
+        mp3File.getBuffer((err, buffer) => {
+          if (err) {
+            updateStatus('Error: ' + err.message)
+            return
+          }
+
+          const blob = new Blob([buffer], { type: 'audio/mpeg' })
+          const url = URL.createObjectURL(blob)
+
+          const playerDiv = document.getElementById('player')
+          playerDiv.innerHTML = ''
+
+          const audio = document.createElement('audio')
+          audio.controls = true
+          audio.src = url
+          playerDiv.appendChild(audio)
+
+          const link = document.createElement('a')
+          link.href = url
+          link.download = mp3File.name
+          link.textContent = '⬇️ Download MP3'
+          playerDiv.appendChild(link)
+
+          updateStatus('Download complete. You can now play or save the MP3.')
+        })
+      })
+    }
+  </script>
+</body>
+</html>
