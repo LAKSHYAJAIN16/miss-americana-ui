@@ -1,6 +1,5 @@
 import logo from './assets/logo.png'
 import { SpotifyAuth, Scopes } from 'react-spotify-auth'
-import 'react-spotify-auth/dist/index.css'
 
 function App () {
   return (

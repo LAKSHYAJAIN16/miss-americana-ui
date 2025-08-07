@@ -1,0 +1,46 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Electron: Main",
+      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/electron",
+      "windows": {
+        "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/electron.cmd"
+      },
+      "program": "${workspaceFolder}/.webpack/main",
+      "outFiles": ["${workspaceFolder}/.webpack/main/**/*.js"],
+      "preLaunchTask": "webpack: build - .webpack/webpack.main.config.js",
+      "internalConsoleOptions": "openOnSessionStart"
+    },
+    {
+      "name": "Debug Main Process",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/electron",
+      "windows": {
+        "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/electron.cmd"
+      },
+      "args": [".", "--remote-debugging-port=9223"],
+      "outputCapture": "std"
+    },
+    {
+      "name": "Debug Renderer Process",
+      "type": "chrome",
+      "request": "launch",
+      "runtimeArgs": [
+        "--app=http://localhost:1420",
+        "--remote-debugging-port=9222"
+      ],
+      "webRoot": "${workspaceFolder}/src/renderer"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Debug All",
+      "configurations": ["Electron: Main", "Debug Renderer Process"]
+    }
+  ]
+}

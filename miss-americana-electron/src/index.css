@@ -1,0 +1,35 @@
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica,
+    Arial, sans-serif;
+  margin: auto;
+  max-width: 38rem;
+  padding: 2rem;
+}
+._3xrlJ {
+  transition-duration: 300ms;
+  background-color: #1db954;
+  color: #fff;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 32px;
+  border: none;
+  border-radius: 0.2rem;
+}
+
+._3xrlJ:hover, ._3xrlJ:focus {
+  transition-duration: 500ms;
+  transform: translate(-1px, 2px);
+  box-shadow: 0 0.25rem 0.75rem 0 #777777;
+}
+
+._1JCP_ {
+  /* Convert spotify logo to white */
+  padding: 0.25rem 0.5rem;
+  height: 1.5rem;
+  fill: #fff;
+  width:2em;
+}
+
