@@ -4,11 +4,18 @@ import Home from './pages/Home';
 import './App.css';
 
 // Import Tauri compatibility layer
-import tauri from './compatibility/tauri-compat';
+import * as tauri from './compatibility/tauri-compat';
 
 // Make Tauri APIs globally available for compatibility
 if (!window.__TAURI__) {
-  window.__TAURI__ = tauri;
+  window.__TAURI__ = {
+    ...tauri,
+    fs: tauri.fs,
+    http: tauri.http,
+    shell: tauri.shell,
+    app: tauri.app,
+    window: tauri.window
+  };
 }
 
 function App() {
